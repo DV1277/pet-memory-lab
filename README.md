@@ -47,6 +47,37 @@ cd pet-memory-lab
 python3 -m venv .venv
 source .venv/bin/activate
 ```
+### Run the memory retrieval example
+
+After creating and activating your virtual environment:
+
+1. Install the packages:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Run the example:
+
+   ```bash
+   python memory.py
+   ```
+
+   On the first run, the embedding model downloads. Chroma stores its local database in the `chroma_data/` folder.
+
+3. When prompted, enter a question about the sample facts. For example:
+
+   ```text
+   What is my pet's name?
+   ```
+
+   The expected retrieved memory is:
+
+   ```text
+   I have a dog named Luna.
+   ```
+
+The available facts are currently listed in `memory.py` and can be modified there. Retrieval is based on similarity, so results may not always be relevant.
 
 On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell instead.
 

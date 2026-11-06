@@ -47,7 +47,7 @@ cd pet-memory-lab
 python3 -m venv .venv
 source .venv/bin/activate
 ```
-### Run the memory retrieval example
+### Install dependencies
 
 After creating and activating your virtual environment:
 
@@ -57,31 +57,46 @@ After creating and activating your virtual environment:
    pip install -r requirements.txt
    ```
 
-2. Run the example:
-
-   ```bash
-   python memory.py
-   ```
-
-   On the first run, the embedding model downloads. Chroma stores its local database in the `chroma_data/` folder.
-
-3. When prompted, enter a question about the sample facts. For example:
-
-   ```text
-   What is my pet's name?
-   ```
-
-   The expected retrieved memory is:
-
-   ```text
-   I have a dog named Luna.
-   ```
-
-The available facts are currently listed in `memory.py` and can be modified there. Retrieval is based on similarity, so results may not always be relevant.
+All files downloaded when embedding model loads on first use. Memories are store locally in chroma in 'chroma_data/' folder. See **Using memory backend** section below for available function examples.
 
 On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell instead.
 
-After first code push, add the dependencies to `requirements.txt` and document the exact install and run commands here. Use made-up sample facts for demos.
+
+## Using the memory backend
+
+Import the backend in your Python file
+```python
+import memory
+```
+
+### Adding a fact
+Function takes in a fact as text, creates embedding using the model, creates a unique id for the fact, and then saves all three parts in Chroma.
+
+Example call:
+```Python
+new_fact1 = memory.add_fact("Twin peaks is my favorite TV show")
+print(new_fact1)
+```
+
+The fact is then saved in Chroma and returns a dictionary of the new fact, specifically providing the fact id and fact itself. Each call adds a new record
+
+### Getting a list of facts
+Function takes no arguments. Returns a list of dictionaries, memories, each containing the fact and its unique ID.
+
+Example call:
+```Python
+facts = memory.list_facts()
+print(facts)
+```
+
+### Searching for a fact
+Function takes in question as an argument. Checks for empty Chroma collection, returns None if there are no facts. It embeds the question and searches for nearest  memory in Chroma if collection isn't empty. Returns dictionary containing that fact and the fact's unique ID. Nearest result isn't guaranteed to be relevant.
+
+Example call:
+```python
+matchingFact = memory.search_facts("What is my favorite tv show")
+print(matchingFact)
+```
 
 ## After Friday
 

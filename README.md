@@ -39,7 +39,7 @@ We’ll confirm this before connecting everything:
 
 ## Getting started
 
-This repo currently contains the project notes and checklist. App code and dependency versions will be added as we build the first pieces.
+Clone the repo, create a virtual environment, and install the dependencies below. Then run the retrieval example or the Streamlit dashboard.
 
 ```bash
 git clone https://github.com/DV1277/pet-memory-lab.git
@@ -58,6 +58,24 @@ After creating and activating your virtual environment:
    ```
 
 All files downloaded when embedding model loads on first use. Memories are store locally in chroma in 'chroma_data/' folder. See **Using memory backend** section below for available function examples.
+
+Running `python memory.py` still seeds those sample facts, asks one question, and prints the nearest memory. Importing `memory.py` does not prompt for input.
+
+### Run the dashboard
+
+After the install step above:
+
+```bash
+streamlit run dashboard.py
+```
+
+The dashboard saves facts, lists them with ids, and searches the same stored memories with keyword and embedding results side by side. It calls three functions in `memory.py`:
+
+- `add_fact(text)` saves one fact and returns a new unique id.
+- `list_facts()` returns each saved fact as `{"id": ..., "text": ...}`.
+- `search_embeddings(query, n_results=1)` returns the nearest fact as `{"id": ..., "text": ...}`. It may also include `"score"`, which is Chroma distance (lower means closer).
+
+Keyword search lives in `dashboard.py`. It ranks the current `list_facts()` output by overlapping words and does not write to Chroma.
 
 On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell instead.
 

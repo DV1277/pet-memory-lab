@@ -71,9 +71,9 @@ streamlit run dashboard.py
 
 The dashboard saves facts, lists them with ids, and searches the same stored memories with keyword and embedding results side by side. It calls three functions in `memory.py`:
 
-- `add_fact(text)` saves one fact and returns a new unique id.
-- `list_facts()` returns each saved fact as `{"id": ..., "text": ...}`.
-- `search_embeddings(query, n_results=1)` returns the nearest fact as `{"id": ..., "text": ...}`. It may also include `"score"`, which is Chroma distance (lower means closer).
+- `add_fact(fact)` saves one fact and returns `{"id": ..., "fact": ...}`.
+- `list_facts()` returns each saved fact as `{"id": ..., "fact": ...}`.
+- `search_facts(question)` returns the nearest fact as `{"id": ..., "fact": ...}`, or `None` when nothing is saved.
 
 Keyword search lives in `dashboard.py`. It ranks the current `list_facts()` output by overlapping words and does not write to Chroma.
 

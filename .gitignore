@@ -12,6 +12,7 @@ __pycache__/
 .streamlit/secrets.toml
 chroma_data/
 .chroma/
+memories.csv
 
 # OS files
 .DS_Store

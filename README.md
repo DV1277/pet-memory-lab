@@ -82,6 +82,8 @@ On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell instead.
 
 ## Using the memory backend
 
+Facts are also saved in 'memories.csv' in the project folder. The CSV refreshes when a fact is added, updated, and after migrated IDs in the main collection. Chroma is still used to store embeddings and search memories.
+
 Import the backend in your Python file
 ```python
 import memory
@@ -108,13 +110,43 @@ print(facts)
 ```
 
 ### Searching for a fact
-Function takes in question as an argument. Checks for empty Chroma collection, returns None if there are no facts. It embeds the question and searches for nearest  memory in Chroma if collection isn't empty. Returns dictionary containing that fact and the fact's unique ID. Nearest result isn't guaranteed to be relevant.
+Function takes in question as an argument. Checks for empty Chroma collection, returns None if there are no facts. It embeds the question and searches for nearest  memory in Chroma if collection isn't empty. Returns dictionary containing that fact, the fact's unique ID, and its distance. Smaller distance means closer match. Nearest result isn't guaranteed to be relevant yet.
 
 Example call:
 ```python
 matchingFact = memory.search_facts("What is my favorite tv show")
 print(matchingFact)
 ```
+
+### Updating a fact
+
+The function takes in the ID of an existing fact and the new fact text. It
+updates the fact and its embedding while keeping the same ID. It returns a dictionary with the ID and updated fact, or `None` if the ID doesn't exist.
+
+Example call:
+```python
+updatedFact = memory.update_fact(fact_id, "My pet is named Teo.")
+print(updatedFact)
+```
+
+`fact_id` should be the ID of the fact you want to update.
+
+### Updating old fact IDs
+
+Older saved facts might have numeric IDs like `1`, `2`, and `3`. This migration
+changes numeric IDs to UUIDs and keeps the fact text, embedding, and metadata.
+Facts that already have UUIDs won't be changed.
+
+Before running it, stop the dashboard and make a backup of your `chroma_data/`
+folder. Then run this command from the project folder:
+
+```bash
+python -c "import memory; print(memory.migrate_numeric_ids(memory.collection))"
+```
+
+The output shows the old and new IDs. If there are no numeric IDs left, it
+returns `{}`. Any tests or other references using the old IDs will need to be
+updated.
 
 ## After Friday
 

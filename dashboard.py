@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from PIL import Image, ImageDraw
 
 from memory import add_fact, list_facts, search_facts, update_fact
 
@@ -40,11 +41,63 @@ LINK_STOPWORDS = {
     "how",
 }
 
-st.set_page_config(page_title="Pet Memory Lab")
-st.title("Pet Memory Lab")
-st.write(
+PAW_SVG = """
+<svg width="56" height="56" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <ellipse cx="33" cy="42" rx="13" ry="11" fill="#E07A5F"/>
+  <circle cx="15" cy="24" r="6" fill="#E07A5F"/>
+  <circle cx="27" cy="15" r="6.5" fill="#E07A5F"/>
+  <circle cx="41" cy="15" r="6.5" fill="#E07A5F"/>
+  <circle cx="52" cy="25" r="5.5" fill="#E07A5F"/>
+</svg>
+""".strip()
+HEADER_INTRO = (
     "Save a memory, update one that changed, and compare keyword overlap "
     "with embedding distance on the same memories."
+)
+
+
+def make_paw_icon() -> Image.Image:
+    """Terracotta paw used as the browser tab icon."""
+    image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    color = (224, 122, 95, 255)
+    draw.ellipse((18, 30, 50, 58), fill=color)
+    draw.ellipse((6, 16, 22, 32), fill=color)
+    draw.ellipse((20, 6, 36, 22), fill=color)
+    draw.ellipse((36, 6, 52, 22), fill=color)
+    draw.ellipse((48, 18, 62, 32), fill=color)
+    return image
+
+
+def memory_count_label(facts: list[dict] | None) -> str:
+    if facts is None:
+        return "Memories unavailable"
+    count = len(facts)
+    noun = "memory" if count == 1 else "memories"
+    return f"{count} {noun} saved"
+
+
+def render_header(facts: list[dict] | None) -> None:
+    label = memory_count_label(facts)
+    st.markdown(
+        f"""
+        <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:18px 22px;border-radius:16px;background:#D7EDD4;border:1px solid #C3DCC0;">
+          <div style="flex:0 0 auto;line-height:0;">{PAW_SVG}</div>
+          <div style="flex:1;min-width:220px;">
+            <div style="font-size:2rem;font-weight:700;color:#3D2C29;line-height:1.15;">Pet Memory Lab</div>
+            <div style="margin-top:6px;color:#3D2C29;font-size:1rem;">{HEADER_INTRO}</div>
+          </div>
+          <div style="flex:0 0 auto;background:#81B29A;color:#ffffff;border-radius:999px;padding:8px 14px;font-weight:600;">{label}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+st.set_page_config(
+    page_title="Pet Memory Lab",
+    page_icon=make_paw_icon(),
+    layout="wide",
 )
 
 
@@ -168,17 +221,18 @@ def format_distance(value: object) -> str | None:
 
 
 def show_hit(hit: dict, score_line: str = "") -> None:
-    fact = str(hit.get("fact", "")).strip()
-    st.write(fact or "(empty memory)")
-    st.caption(f"ID: {hit.get('id', '')}")
-    also_ids = [str(item) for item in hit.get("also_ids", []) if item]
-    if also_ids:
-        st.caption("Same wording is also saved as: " + ", ".join(also_ids))
-    if score_line and hit.get("score") is not None:
-        st.caption(score_line.format(score=hit["score"]))
-    distance = format_distance(hit.get("distance"))
-    if distance is not None:
-        st.caption(f"Distance: {distance} (smaller is closer)")
+    with st.container(border=True):
+        fact = str(hit.get("fact", "")).strip()
+        st.write(fact or "(empty memory)")
+        st.caption(f"ID: {hit.get('id', '')}")
+        also_ids = [str(item) for item in hit.get("also_ids", []) if item]
+        if also_ids:
+            st.caption("Same wording is also saved as: " + ", ".join(also_ids))
+        if score_line and hit.get("score") is not None:
+            st.caption(score_line.format(score=hit["score"]))
+        distance = format_distance(hit.get("distance"))
+        if distance is not None:
+            st.caption(f"Distance: {distance} (smaller is closer)")
 
 
 def render_results(facts: list[dict], query: str) -> None:
@@ -226,6 +280,7 @@ def render_results(facts: list[dict], query: str) -> None:
                 y="Overlapping words",
                 horizontal=True,
                 sort=False,
+                color="#81B29A",
             )
             if len(keyword_hits) > 12:
                 st.caption("The chart shows the 12 strongest keyword matches.")
@@ -337,46 +392,57 @@ st.session_state.setdefault("saved_message", "")
 st.session_state.setdefault("search_query", "")
 st.session_state.setdefault("search_error", "")
 
-if st.session_state.saved_message:
-    st.success(st.session_state.saved_message)
-
 try:
     facts = list_facts()
 except Exception as exc:
     facts = None
-    st.error(f"Saved memories could not be loaded: {exc}")
+    load_error = exc
+else:
+    load_error = None
+
+render_header(facts)
+
+if load_error is not None:
+    st.error(f"Saved memories could not be loaded: {load_error}")
+
+if st.session_state.saved_message:
+    st.success(st.session_state.saved_message)
 
 save_clicked = False
 update_clicked = False
 add_col, update_col = st.columns(2)
 with add_col:
-    st.subheader("Add a fact")
-    with st.form("add_fact_form"):
-        fact_text = st.text_area("Fact", placeholder="My favorite drink is matcha.")
-        save_distinct = st.checkbox(
-            "Save as a distinct fact even if the wording overlaps another memory"
-        )
-        save_clicked = st.form_submit_button("Save", disabled=facts is None)
+    with st.container(border=True):
+        st.subheader("Add a fact")
+        with st.form("add_fact_form"):
+            fact_text = st.text_area("Fact", placeholder="My favorite drink is matcha.")
+            save_distinct = st.checkbox(
+                "Save as a distinct fact even if the wording overlaps another memory"
+            )
+            save_clicked = st.form_submit_button(
+                "Save", disabled=facts is None, type="primary"
+            )
 
 with update_col:
-    st.subheader("Update a fact")
-    if not facts:
-        st.info("Save a memory before updating one.")
-    else:
-        facts_by_id = {str(fact.get("id", "")): fact for fact in facts}
-        selected_id = st.selectbox(
-            "Memory to update",
-            options=list(facts_by_id),
-            format_func=lambda fact_id: short_label(facts_by_id[fact_id]),
-        )
-        selected = facts_by_id[selected_id]
-        with st.form("update_fact_form"):
-            updated_text = st.text_area(
-                "Updated fact",
-                value=str(selected.get("fact", "")),
-                key=f"update_text_{selected_id}",
+    with st.container(border=True):
+        st.subheader("Update a fact")
+        if not facts:
+            st.info("Save a memory before updating one.")
+        else:
+            facts_by_id = {str(fact.get("id", "")): fact for fact in facts}
+            selected_id = st.selectbox(
+                "Memory to update",
+                options=list(facts_by_id),
+                format_func=lambda fact_id: short_label(facts_by_id[fact_id]),
             )
-            update_clicked = st.form_submit_button("Update")
+            selected = facts_by_id[selected_id]
+            with st.form("update_fact_form"):
+                updated_text = st.text_area(
+                    "Updated fact",
+                    value=str(selected.get("fact", "")),
+                    key=f"update_text_{selected_id}",
+                )
+                update_clicked = st.form_submit_button("Update", type="primary")
 
 if facts is not None and save_clicked:
     cleaned = (fact_text or "").strip()
@@ -464,7 +530,9 @@ else:
 st.subheader("Ask a question")
 with st.form("ask_form"):
     question = st.text_input("Question", placeholder="What do I like to drink?")
-    search_clicked = st.form_submit_button("Search", disabled=facts is None)
+    search_clicked = st.form_submit_button(
+        "Search", disabled=facts is None, type="primary"
+    )
 
 if search_clicked:
     cleaned_question = (question or "").strip()

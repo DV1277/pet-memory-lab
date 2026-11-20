@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import csv
 import warnings
+import re
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 project_dir = Path(__file__).resolve().parent
@@ -13,11 +14,14 @@ collection = client.get_or_create_collection(name="memories")
 
 
 def add_fact(fact):
+    if not isinstance(fact, str) or not fact.strip():
+        raise ValueError("Fact must not be blank.")
+
     fact_embedding = model.encode(fact)
     fact_id = str(uuid.uuid4())
     collection.add(ids = [fact_id],
                documents = [fact],
-               embeddings = [fact_embedding.tolist()]
+               embeddings = [fact_embedding.tolist()],
                )
     sync_facts_csv()
     return {"id": fact_id, "fact": fact}
@@ -32,18 +36,55 @@ def list_facts():
 
 def search_facts(question):
     """Return the nearest stored fact and id, none when collection is currently empty"""
-    # check for empty collection, Kenny should return some sort of error on the frontend 
+    if not isinstance(question, str) or not question.strip():
+        raise ValueError("Question must not be blank.")
+
+    if not any(char.isalnum() for char in question):
+        raise ValueError("Question must contain a letter or number.")
     if (collection.count() == 0):
         return None
-    
+
     question_embedding = model.encode(question)
-    results = collection.query(query_embeddings = [question_embedding.tolist()], n_results = 1)
-    return {"id": results["ids"][0][0],
-            "fact": results["documents"][0][0],
-            "distance": results["distances"][0][0]}
+    results = collection.query(query_embeddings = [question_embedding.tolist()], n_results = min(2, collection.count()))
+
+    candidates = []
+    for fact_id, fact, distance in zip(
+        results["ids"][0],
+        results["documents"][0],
+        results["distances"][0]
+    ):
+        candidates.append({
+            "id": fact_id,
+            "fact": fact,
+            "distance": distance,
+        })
+
+    if not candidates:
+        return None
+    rerank_texts = ["Question: " + question]
+    rerank_texts += ["Answer: " + candidate["fact"] for candidate in candidates]
+    rerank_embeddings = model.encode(rerank_texts)
+    for index, candidate in enumerate(candidates):
+        candidate["rerank_distance"] = float(np.sum((rerank_embeddings[0] - rerank_embeddings[index+1]) **2))
+    candidates.sort(key=lambda candidate: candidate["rerank_distance"])
+
+    top = candidates[0]
+
+    runner_up = candidates[1] if len(candidates) > 1 else None
+    return {"id": top["id"],
+            "fact": top["fact"],
+            "distance": top["distance"],
+            "runner_up": runner_up,
+            "distance_gap": (
+                runner_up["rerank_distance"] - top["rerank_distance"]
+                if runner_up is not None else None
+            ),
+        }
 
 def update_fact(fact_id, new_fact):
     """Update a stored fact by ID, or return None if the ID doesn't exist."""
+    if not isinstance(new_fact, str) or not new_fact.strip():
+            raise ValueError("Fact must not be blank.")
     existing = collection.get(ids=[fact_id])
     if not existing["ids"]:
         return None

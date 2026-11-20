@@ -13,56 +13,18 @@ client = chromadb.PersistentClient(path=str(project_dir/ "chroma_data"))
 collection = client.get_or_create_collection(name="memories")
 
 
-def add_fact(fact, *, subject=None, detail=None):
+def add_fact(fact):
     if not isinstance(fact, str) or not fact.strip():
         raise ValueError("Fact must not be blank.")
-
-    options = {}
-    if subject is not None or detail is not None:
-        options["metadatas"] = [memory_key(subject, detail)]
 
     fact_embedding = model.encode(fact)
     fact_id = str(uuid.uuid4())
     collection.add(ids = [fact_id],
                documents = [fact],
                embeddings = [fact_embedding.tolist()],
-               **options,
                )
     sync_facts_csv()
     return {"id": fact_id, "fact": fact}
-
-def memory_key(subject, detail):
-    if any(
-        not isinstance(value, str) or not value.strip()
-        for value in (subject, detail)
-    ):
-        raise ValueError("Subject and detail must be nonblank text.")
-
-    return {
-        "subject": " ".join(subject.casefold().split()),
-        "detail": " ".join(detail.casefold().split()),
-    }
-
-
-def lookup_fact(subject, detail):
-    key = memory_key(subject, detail)
-    result = collection.get(
-        where={
-            "$and": [
-                {"subject": key["subject"]},
-                {"detail": key["detail"]},
-            ]
-        },
-        include=["documents"],
-        limit=2,
-    )
-
-    if not result["ids"]:
-        return None
-    if len(result["ids"]) > 1:
-        raise ValueError("Multiple facts match this subject and detail.")
-
-    return {"id": result["ids"][0], "fact": result["documents"][0]}
 
 def list_facts():
     fact_records = collection.get()
